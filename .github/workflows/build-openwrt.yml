@@ -36,7 +36,7 @@ jobs:
 
     - name: Get SDK
       working-directory: /workdir
-      run: /
+      run: |
         df -hT $PWD
         wget https://downloads.openwrt.org/releases/19.07.6/targets/ar71xx/nand/openwrt-sdk-19.07.6-ar71xx-nand_gcc-7.5.0_musl.Linux-x86_64.tar.xz
         tar xf openwrt-sdk-19.07.6-ar71xx-nand_gcc-7.5.0_musl.Linux-x86_64.tar.xz
@@ -45,13 +45,13 @@ jobs:
         ln -sf /workdir/openwrt $GITHUB_WORKSPACE/openwrt
 
     - name: Add custom feeds
-      run: /
+      run: |
         cd openwrt
         echo "src-git helloworld https://github.com/fw876/helloworld" >> $FEEDS_CONF
 
     - name: Update feeds
       run: cd openwrt && ./scripts/feeds update -a
-      
+
     - name: SSH connection to Actions
       uses: P3TERX/ssh2actions@v1.0.0
       if: (github.event.inputs.ssh == 'true' && github.event.inputs.ssh  != 'false') || contains(github.event.action, 'ssh')
@@ -59,9 +59,20 @@ jobs:
         TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
 
+    - name: Download lean's packges
+      run: |
+        cd openwrt/package && svn co https://github.com/coolsnowwolf/lede/trunk/package/lean
+
+    - name: Install feeds
+      run: cd openwrt && ./scripts/feeds install -a
+
+    - name: Load custom configuration
+      run: |
+        [ -e $CONFIG_FILE ] && mv $CONFIG_FILE openwrt/.config
+
     - name: Compile the Packages
       id: compile
-      run: /
+      run: |
         cd openwrt
         echo -e "$(nproc) thread compile"
         make package/feeds/helloworld/luci-app-ssr-plus/compile -j$(nproc) || make package/feeds/helloworld/luci-app-ssr-plus/compile -j1 || make make package/feeds/helloworld/luci-app-ssr-plus/compile -j1 V=s
