@@ -13,13 +13,16 @@ env:
   FEEDS_CONF: feeds.conf.default
   CONFIG_FILE: .config
   TZ: Asia/Shanghai
-  UPLOAD_BIN_DIR: true
+  UPLOAD_BIN_DIR: false
+  UPLOAD_RELEASE: true
 
 jobs:
   build:
     runs-on: ubuntu-18.04
 
     steps:
+    - name: Checkout
+      uses: actions/checkout@main
 
     - name: Initialization environment
       env:
@@ -42,6 +45,7 @@ jobs:
         tar xf openwrt-sdk-19.07.6-ar71xx-nand_gcc-7.5.0_musl.Linux-x86_64.tar.xz
         rm openwrt-sdk-19.07.6-ar71xx-nand_gcc-7.5.0_musl.Linux-x86_64.tar.xz
         mv openwrt-sdk-19.07.6-ar71xx-nand_gcc-7.5.0_musl.Linux-x86_64 openwrt
+        ln -s `which upx` openwrt/staging_dir/host/bin/upx
         ln -sf /workdir/openwrt $GITHUB_WORKSPACE/openwrt
 
     - name: Add custom feeds
@@ -66,9 +70,9 @@ jobs:
         TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
 
-    #- name: Load custom configuration
-    #  run: |
-    #    [ -e $CONFIG_FILE ] && mv $CONFIG_FILE openwrt/.config
+    - name: Load custom configuration
+      run: |
+        [ -e $CONFIG_FILE ] && mv $CONFIG_FILE openwrt/.config
 
     - name: Compile the Packages
       id: compile
@@ -78,6 +82,14 @@ jobs:
         make package/feeds/helloworld/luci-app-ssr-plus/compile -j$(nproc) || make package/feeds/helloworld/luci-app-ssr-plus/compile -j1 || make make package/feeds/helloworld/luci-app-ssr-plus/compile -j1 V=s
         echo "::set-output name=status::success"
         echo "FILE_DATE=_$(date +"%Y%m%d%H%M")" >> $GITHUB_ENV
+
+    - name: tarball ipk files
+      id: tarfiles
+      run: |
+        cd openwrt && mkdir ipkfiles
+        find bin  -name "*.ipk" -exec mv {} ipkfiles \;
+        tar czf ${{ env.FILE_DATE }}ipkfiles.tar.gz ipkfiles
+        echo "::set-output name=status::success"
 
     - name: Check space usage
       if: (!cancelled())
@@ -89,3 +101,21 @@ jobs:
       with:
         name: OpenWrt_bin${{ env.FILE_DATE }}
         path: openwrt/bin
+
+    - name: Generate release tag
+      id: tag
+      if: env.UPLOAD_RELEASE == 'true' && !cancelled()
+      run: |
+        echo "::set-output name=release_tag::$(date +"%Y.%m.%d-%H%M")"
+        touch release.txt
+        echo "::set-output name=status::success"
+
+    - name: Upload ipkfiles to release
+      uses: softprops/action-gh-release@v1
+      if: steps.tag.outputs.status == 'success' && !cancelled()
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ steps.tag.outputs.release_tag }}
+        body_path: release.txt
+        files: openwrt/${{ env.FILE_DATE }}ipkfiles.tar.gz
