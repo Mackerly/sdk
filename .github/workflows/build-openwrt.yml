@@ -55,9 +55,9 @@ jobs:
     - name: Install feeds
       run: cd openwrt && ./scripts/feeds install -a
 
-    - name: Download lean's packges
-      run: /
-        cd openwrt/package && svn co https://github.com/coolsnowwolf/lede/trunk/package/lean
+    #- name: Download lean's packges
+    #  run: /
+    #    cd openwrt/package && svn co https://github.com/coolsnowwolf/lede/trunk/package/lean
 
     - name: Load custom configuration
       run: |
