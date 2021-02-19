@@ -49,8 +49,8 @@ jobs:
         git fetch --tags
         git tag -l
         git checkout v19.07.7
-        ln -s `which upx` openwrt/staging_dir/host/bin/upx
-        ln -sf /workdir/openwrt $GITHUB_WORKSPACE/openwrt
+        #ln -s `which upx` openwrt/staging_dir/host/bin/upx
+        #ln -sf /workdir/openwrt $GITHUB_WORKSPACE/openwrt
 
     - name: Add custom feeds
       run: |
